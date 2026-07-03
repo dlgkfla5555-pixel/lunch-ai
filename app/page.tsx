@@ -62,22 +62,39 @@ export default function Home() {
   };
 
   const aiRecommend = async () => {
-    if (menus.length === 0) return;
+  if (menus.length === 0) return;
 
-    setLoading(true);
-    setAiResult("");
+  setLoading(true);
+  setAiResult("");
 
-    const sorted = [...menus].sort((a, b) => b.likes - a.likes);
-    const top = sorted[0];
+  const now = new Date();
+  const hour = now.getHours();
 
-    await new Promise((r) => setTimeout(r, 700));
+  let timeText = "점심";
+  if (hour < 11) timeText = "아침";
+  else if (hour < 17) timeText = "점심";
+  else timeText = "저녁";
 
-    setAiResult(
-      `🍱 오늘 점심 추천\n👉 ${top?.name}\n\n❤️ 인기 기반 추천입니다`
-    );
+  // 간단 날씨 (임시 버전)
+  const weather = "더움";
 
-    setLoading(false);
-  };
+  const res = await fetch("/api/recommend", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      menus,
+      weather,
+      time: timeText,
+    }),
+  });
+
+  const data = await res.json();
+
+  setAiResult(data.result);
+  setLoading(false);
+};
 
   const top3 = [...menus]
     .sort((a, b) => b.likes - a.likes)
