@@ -1,231 +1,144 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Header from "@/components/Header";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-
-type Menu = {
-  id: number;
-  name: string;
-  likes: number;
-};
+import Header from "@/components/Header";
+import RecommendationBanner from "@/components/RecommendationBanner";
+import FeaturedCafeteriaCard from "@/components/FeaturedCafeteriaCard";
+import CafeteriaTabs from "@/components/CafeteriaTabs";
 
 export default function Home() {
-  const [menus, setMenus] = useState<Menu[]>([]);
-  const [input, setInput] = useState("");
-  const [pick, setPick] = useState<Menu | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [aiResult, setAiResult] = useState("");
+  const [cafeterias, setCafeterias] = useState<any[]>([]);
+  const [likes, setLikes] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    fetchMenus();
+  const fetchData = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("cafeteria_menus")
+      .select("*")
+      .order("display_order", { ascending: true });
+
+    if (error) console.error("❌ ERROR:", error);
+    setCafeterias(data || []);
+    setLoading(false);
   }, []);
 
-  const fetchMenus = async () => {
-    const { data } = await supabase
-      .from("test")
-      .select("*")
-      .order("id", { ascending: true });
+  const fetchLikes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/like");
+      const json = await res.json();
 
-    setMenus(data || []);
-  };
+      if (json.success) {
+        const likeMap: Record<string, number> = {};
+        for (const row of json.likes) {
+          likeMap[row.cafeteria_name] = row.count;
+        }
+        setLikes(likeMap);
+      }
+    } catch (err) {
+      console.error("❌ 좋아요 조회 실패:", err);
+    }
+  }, []);
 
-  const addMenu = async () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    fetchData();
+    fetchLikes();
+  }, [fetchData, fetchLikes]);
 
-    await supabase.from("test").insert([
-      { name: input, likes: 0 }
-    ]);
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
 
-    setInput("");
-    fetchMenus();
-  };
+    setRefreshing(true);
+    setRefreshError(null);
 
-  const deleteMenu = async (id: number) => {
-    await supabase.from("test").delete().eq("id", id);
-    fetchMenus();
-  };
+    try {
+      const [kakaoRes, sheetRes] = await Promise.allSettled([
+        fetch("/api/update-menus").then((r) => r.json()),
+        fetch("/api/sync-sheet").then((r) => r.json()),
+      ]);
 
-  const likeMenu = async (menu: Menu) => {
-    await supabase
-      .from("test")
-      .update({ likes: menu.likes + 1 })
-      .eq("id", menu.id);
+      const kakaoFailed = kakaoRes.status === "fulfilled" && !kakaoRes.value.success;
+      const sheetFailed = sheetRes.status === "fulfilled" && !sheetRes.value.success;
+      const kakaoRejected = kakaoRes.status === "rejected";
+      const sheetRejected = sheetRes.status === "rejected";
 
-    fetchMenus();
-  };
+      if ((kakaoFailed || kakaoRejected) && (sheetFailed || sheetRejected)) {
+        setRefreshError("업데이트에 실패했어요. 잠시 후 다시 시도해주세요.");
+      } else if (kakaoFailed || kakaoRejected || sheetFailed || sheetRejected) {
+        setRefreshError("일부 데이터만 업데이트됐어요.");
+      }
 
-  const pickRandom = () => {
-    if (menus.length === 0) return;
-    const random = menus[Math.floor(Math.random() * menus.length)];
-    setPick(random);
-  };
+      await fetchData();
+      await fetchLikes();
+    } catch (err: any) {
+      console.error("❌ 새로고침 실패:", err);
+      setRefreshError("업데이트에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing, fetchData, fetchLikes]);
 
-  const aiRecommend = async () => {
-  if (menus.length === 0) return;
+  const handleLikeSuccess = useCallback((name: string, count: number) => {
+    setLikes((prev) => ({ ...prev, [name]: count }));
+  }, []);
 
-  setLoading(true);
-  setAiResult("");
+  // 좋아요가 제일 많은 식당을 "오늘의 추천"으로 (좋아요가 하나도 없으면 1번째로 폴백)
+  const recommended =
+    cafeterias.length > 0
+      ? [...cafeterias].sort((a, b) => (likes[b.name] || 0) - (likes[a.name] || 0))[0]
+      : null;
 
-  const now = new Date();
-  const hour = now.getHours();
+  const hasAnyLikes = Object.values(likes).some((c) => c > 0);
+  const top = hasAnyLikes ? recommended : cafeterias[0];
 
-  let timeText = "점심";
-  if (hour < 11) timeText = "아침";
-  else if (hour < 17) timeText = "점심";
-  else timeText = "저녁";
-
-  // 간단 날씨 (임시 버전)
-  const weather = "더움";
-
-  const res = await fetch("/api/recommend", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      menus,
-      weather,
-      time: timeText,
-    }),
-  });
-
-  const data = await res.json();
-
-  setAiResult(data.result);
-  setLoading(false);
-};
-
-  const top3 = [...menus]
-    .sort((a, b) => b.likes - a.likes)
-    .slice(0, 3);
+  const active = cafeterias[activeIndex];
 
   return (
-    <main className="mx-auto min-h-screen max-w-[430px] px-5 py-6 bg-gray-50 space-y-6">
+    <main className="max-w-[430px] mx-auto p-5 space-y-4">
+      <Header onRefresh={handleRefresh} refreshing={refreshing} />
 
-      <Header />
-
-      {/* 입력 */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm space-y-2">
-        <div className="text-sm font-semibold text-gray-600">
-          🍱 메뉴 추가
+      {refreshError && (
+        <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-2">
+          {refreshError}
         </div>
+      )}
 
-        <div className="flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="예: 김치찌개"
-            className="flex-1 border rounded-xl px-3 py-2"
+      {loading && <div className="text-center text-gray-400 py-10">불러오는 중...</div>}
+
+      {!loading && top && (
+        <RecommendationBanner
+          name={top.name}
+          tagline={hasAnyLikes ? "오늘 좋아요를 가장 많이 받았어요" : "오늘 가장 든든한 한 끼"}
+          highlightMenu={Array.isArray(top.main) ? top.main[0] : top.main}
+        />
+      )}
+
+      {!loading && cafeterias.length > 0 && (
+        <>
+          <CafeteriaTabs
+            cafeterias={cafeterias}
+            activeIndex={activeIndex}
+            onChange={setActiveIndex}
           />
 
-          <button
-            onClick={addMenu}
-            className="px-4 py-2 bg-blue-500 text-white rounded-xl 
-            hover:scale-[1.02] active:scale-95 transition"
-          >
-            추가
-          </button>
-        </div>
-      </div>
-
-      {/* TOP 3 */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm">
-        <div className="font-semibold mb-2">🔥 인기 TOP 3</div>
-
-        {top3.length === 0 && (
-          <div className="text-sm text-gray-400">
-            아직 데이터 없음
-          </div>
-        )}
-
-        {top3.map((m, i) => (
-          <div key={m.id} className="flex justify-between py-1">
-            <span>
-              {i + 1}. {m.name}
-            </span>
-            <span className="text-sm text-gray-500">
-              ❤️ {m.likes}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* 전체 리스트 */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm space-y-3">
-        <div className="font-semibold">🍽️ 전체 메뉴</div>
-
-        {menus.map((menu) => (
-          <div
-            key={menu.id}
-            className="flex justify-between items-center border-b pb-2"
-          >
-            <div>
-              <div>{menu.name}</div>
-              <div className="text-xs text-gray-400">
-                ❤️ {menu.likes}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => likeMenu(menu)}
-                className="text-sm hover:scale-110 active:scale-95 transition"
-              >
-                👍
-              </button>
-
-              <button
-                onClick={() => deleteMenu(menu.id)}
-                className="text-xs text-red-500"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 버튼 */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={pickRandom}
-          className="py-3 bg-black text-white rounded-xl 
-          hover:scale-[1.02] active:scale-95 transition"
-        >
-          랜덤 추천
-        </button>
-
-        <button
-          onClick={aiRecommend}
-          className="py-3 bg-purple-600 text-white rounded-xl 
-          hover:scale-[1.02] active:scale-95 transition"
-        >
-          AI 추천
-        </button>
-      </div>
-
-      {/* 로딩 */}
-      {loading && (
-        <div className="text-center text-gray-400 animate-pulse">
-          AI가 메뉴를 분석 중...
-        </div>
+          {active && (
+            <FeaturedCafeteriaCard
+              key={active.id}
+              rank={activeIndex + 1}
+              cafeteria={active}
+              likeCount={likes[active.name] || 0}
+              onLikeSuccess={handleLikeSuccess}
+            />
+          )}
+        </>
       )}
 
-      {/* 랜덤 결과 */}
-      {pick && (
-        <div className="bg-white p-4 rounded-2xl shadow-sm text-center">
-          <div className="text-sm text-gray-500">랜덤 추천</div>
-          <div className="text-xl font-bold">{pick.name}</div>
-        </div>
-      )}
-
-      {/* AI 결과 */}
-      {aiResult && (
-        <div className="bg-white p-4 rounded-2xl shadow-sm whitespace-pre-wrap">
-          {aiResult}
-        </div>
-      )}
+      <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
+        매뉴는 매일 오전 11시~12시 사이에 업데이트돼요!
+      </div>
     </main>
   );
 }
