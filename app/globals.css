@@ -12,12 +12,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 body {
   background: var(--background);
@@ -25,4 +19,45 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   
+}
+
+@keyframes gacha-shake {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-6px) rotate(-8deg);
+  }
+  40% {
+    transform: translateY(0) rotate(8deg);
+  }
+  60% {
+    transform: translateY(-4px) rotate(-6deg);
+  }
+  80% {
+    transform: translateY(0) rotate(6deg);
+  }
+}
+
+@keyframes gacha-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-gacha-shake {
+  animation: gacha-shake 0.4s ease-in-out infinite;
+}
+
+.animate-gacha-pop {
+  animation: gacha-pop 0.4s ease-out;
 }

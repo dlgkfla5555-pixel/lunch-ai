@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import RecommendationBanner from "@/components/RecommendationBanner";
+import SlotMachinePicker from "@/components/SlotMachinePicker";
 import FeaturedCafeteriaCard from "@/components/FeaturedCafeteriaCard";
 import CafeteriaTabs from "@/components/CafeteriaTabs";
+import CommentBoard from "@/components/CommentBoard";
 
 export default function Home() {
   const [cafeterias, setCafeterias] = useState<any[]>([]);
@@ -14,6 +15,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"menu" | "board">("menu");
 
   const fetchData = useCallback(async () => {
     const { data, error } = await supabase
@@ -85,60 +87,73 @@ export default function Home() {
     setLikes((prev) => ({ ...prev, [name]: count }));
   }, []);
 
-  // 좋아요가 제일 많은 식당을 "오늘의 추천"으로 (좋아요가 하나도 없으면 1번째로 폴백)
-  const recommended =
-    cafeterias.length > 0
-      ? [...cafeterias].sort((a, b) => (likes[b.name] || 0) - (likes[a.name] || 0))[0]
-      : null;
-
-  const hasAnyLikes = Object.values(likes).some((c) => c > 0);
-  const top = hasAnyLikes ? recommended : cafeterias[0];
-
   const active = cafeterias[activeIndex];
 
   return (
     <main className="max-w-[430px] mx-auto p-5 space-y-4">
       <Header onRefresh={handleRefresh} refreshing={refreshing} />
 
-      {refreshError && (
-        <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-2">
-          {refreshError}
-        </div>
-      )}
+      {/* 메뉴 / 메모장 모드 전환 */}
+      <div className="flex gap-1 bg-gray-100 rounded-full p-1">
+        <button
+          onClick={() => setViewMode("menu")}
+          className={`flex-1 text-sm font-semibold rounded-full py-2 transition ${
+            viewMode === "menu" ? "bg-white shadow-sm text-black" : "text-gray-400"
+          }`}
+        >
+          오늘의 메뉴
+        </button>
+        <button
+          onClick={() => setViewMode("board")}
+          className={`flex-1 text-sm font-semibold rounded-full py-2 transition ${
+            viewMode === "board" ? "bg-white shadow-sm text-black" : "text-gray-400"
+          }`}
+        >
+          메모장
+        </button>
+      </div>
 
-      {loading && <div className="text-center text-gray-400 py-10">불러오는 중...</div>}
-
-      {!loading && top && (
-        <RecommendationBanner
-          name={top.name}
-          tagline={hasAnyLikes ? "오늘 좋아요를 가장 많이 받았어요" : "오늘 가장 든든한 한 끼"}
-          highlightMenu={Array.isArray(top.main) ? top.main[0] : top.main}
-        />
-      )}
-
-      {!loading && cafeterias.length > 0 && (
+      {viewMode === "board" ? (
+        <CommentBoard />
+      ) : (
         <>
-          <CafeteriaTabs
-            cafeterias={cafeterias}
-            activeIndex={activeIndex}
-            onChange={setActiveIndex}
-          />
-
-          {active && (
-            <FeaturedCafeteriaCard
-              key={active.id}
-              rank={activeIndex + 1}
-              cafeteria={active}
-              likeCount={likes[active.name] || 0}
-              onLikeSuccess={handleLikeSuccess}
-            />
+          {refreshError && (
+            <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-2">
+              {refreshError}
+            </div>
           )}
+
+          {loading && <div className="text-center text-gray-400 py-10">불러오는 중...</div>}
+
+          {!loading && cafeterias.length > 0 && (
+            <SlotMachinePicker names={cafeterias.map((c) => c.name)} />
+          )}
+
+          {!loading && cafeterias.length > 0 && (
+            <>
+              <CafeteriaTabs
+                cafeterias={cafeterias}
+                activeIndex={activeIndex}
+                onChange={setActiveIndex}
+              />
+
+              {active && (
+                <FeaturedCafeteriaCard
+                  key={active.id}
+                  rank={activeIndex + 1}
+                  cafeteria={active}
+                  likeCount={likes[active.name] || 0}
+                  onLikeSuccess={handleLikeSuccess}
+                />
+              )}
+            </>
+          )}
+
+          <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
+            매뉴는 매일 오전 11시~12시 사이에 업데이트돼요!
+          </div>
         </>
       )}
-
-      <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
-        매뉴는 매일 오전 11시~12시 사이에 업데이트돼요!
-      </div>
     </main>
   );
 }

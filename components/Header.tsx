@@ -23,7 +23,7 @@ export default function Header({ onRefresh, refreshing }: Props) {
   return (
     <header className="flex items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-black">오늘 구내식당</h1>
+        <h1 className="text-2xl font-black text-gray-900">오늘 구내식당</h1>
         <p className="text-gray-400 text-sm mt-1">
           오늘 뭐 먹지? 한눈에 보는 구내식당 메뉴
         </p>

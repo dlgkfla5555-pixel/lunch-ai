@@ -7,6 +7,7 @@ import LikeButton from "./LikeButton";
 import CafeteriaMap from "./CafeteriaMap";
 import { parseListField } from "@/lib/parseListField";
 import { CAFETERIA_ADDRESSES } from "@/lib/cafeteriaAddresses";
+import { CAFETERIA_INFO, getNoteIcon } from "@/lib/cafeteriaNotes";
 
 type Cafeteria = {
   id: string | number;
@@ -37,14 +38,19 @@ export default function FeaturedCafeteriaCard({
   const sides = parseListField(cafeteria.sides).filter((s) => !s.startsWith("미정"));
 
   const address = CAFETERIA_ADDRESSES[cafeteria.name];
+  const info = CAFETERIA_INFO[cafeteria.name];
+  const notes = info?.notes || [];
 
   return (
     <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
-      {/* 상단: 순위 + 이름 + 원본보기/위치보기 */}
+      {/* 상단: 순위 + 이름(+가격) + 원본보기/위치보기 */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <RankBadge rank={rank} />
-          <h3 className="text-lg font-bold truncate">{cafeteria.name}</h3>
+          <h3 className="text-lg font-bold text-gray-900 truncate">{cafeteria.name}</h3>
+          {info?.price && (
+            <span className="text-sm text-gray-400 shrink-0">· {info.price}</span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -115,6 +121,24 @@ export default function FeaturedCafeteriaCard({
           </div>
         </div>
       </div>
+
+      {/* 특이사항 배지 (이모티콘 포함) */}
+      {notes.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-gray-400 mb-2">특이사항</p>
+          <div className="flex flex-wrap gap-2">
+            {notes.map((note) => (
+              <span
+                key={note}
+                className="flex items-center gap-1.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-full px-3 py-1.5"
+              >
+                <span>{getNoteIcon(note)}</span>
+                <span>{note}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 한줄 코멘트 */}
       <div className="mt-4 bg-green-50/60 rounded-2xl p-4">
