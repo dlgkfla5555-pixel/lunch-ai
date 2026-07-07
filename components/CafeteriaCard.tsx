@@ -15,12 +15,11 @@ type Props = {
 };
 
 export default function CafeteriaCard({ cafeteria }: Props) {
-  const sides =
-  Array.isArray(cafeteria.sides)
-    ? cafeteria.sides
-    : typeof cafeteria.sides === "string"
-    ? JSON.parse(cafeteria.sides || "[]")
-    : [];
+const sides: string[] = Array.isArray(cafeteria.sides)
+  ? cafeteria.sides
+  : typeof cafeteria.sides === "string"
+  ? (JSON.parse(cafeteria.sides) as string[])
+  : [];
 
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-sm border border-gray-100">
@@ -111,12 +110,12 @@ export default function CafeteriaCard({ cafeteria }: Props) {
 
             <div className="flex flex-wrap gap-2">
 
-              {sides.map((side) => (
-                <MenuChip
-                  key={side}
-                  menu={side}
-                />
-              ))}
+              {sides.map((side: string) => (
+  <MenuChip
+    key={side}
+    menu={side}
+  />
+))}
 
             </div>
 
