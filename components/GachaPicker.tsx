@@ -6,15 +6,7 @@ type Props = {
   names: string[];
 };
 
-const CAPSULE_GRADIENTS = [
-  "bg-gradient-to-br from-pink-400 to-rose-500",
-  "bg-gradient-to-br from-sky-400 to-blue-500",
-  "bg-gradient-to-br from-amber-300 to-orange-500",
-  "bg-gradient-to-br from-emerald-400 to-teal-500",
-  "bg-gradient-to-br from-purple-400 to-violet-600",
-];
-
-const CONFETTI = ["🎉", "✨", "🎊", "💫", "⭐"];
+const CONFETTI = ["✨", "🎀", "💫", "⭐", "🌸"];
 
 export default function GachaPicker({ names }: Props) {
   const [spinning, setSpinning] = useState(false);
@@ -38,12 +30,8 @@ export default function GachaPicker({ names }: Props) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 p-6 text-center shadow-lg">
-      {/* 은은한 배경 장식 */}
-      <div className="pointer-events-none absolute -top-6 -left-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
-      <div className="pointer-events-none absolute -bottom-8 -right-4 w-28 h-28 rounded-full bg-white/10 blur-xl" />
-
-      <p className="relative text-sm font-bold text-white/90 mb-4 tracking-tight">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-pink-50 to-violet-50 border border-violet-100 p-6 text-center">
+      <p className="relative text-sm font-semibold text-violet-400 mb-4 tracking-tight">
         오늘 뭐 먹을지 고민된다면?
       </p>
 
@@ -52,7 +40,7 @@ export default function GachaPicker({ names }: Props) {
           {names.slice(0, 5).map((name, i) => (
             <div
               key={name}
-              className={`w-11 h-11 rounded-full ${CAPSULE_GRADIENTS[i % CAPSULE_GRADIENTS.length]} shadow-md ${
+              className={`w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(180,150,220,0.35)] ${
                 spinning ? "animate-gacha-shake-hard" : "animate-bounce"
               }`}
               style={{ animationDelay: `${i * 0.1}s` }}
@@ -77,21 +65,21 @@ export default function GachaPicker({ names }: Props) {
             </div>
           )}
 
-          <div className="w-20 h-20 mx-auto rounded-full bg-white flex items-center justify-center mb-3 shadow-xl animate-glow-pulse">
+          <div className="w-20 h-20 mx-auto rounded-full bg-white flex items-center justify-center mb-3 shadow-[0_4px_16px_rgba(180,150,220,0.35)]">
             <span className="text-3xl">🎁</span>
           </div>
 
-          <p className="text-xs font-semibold text-white/80 mb-1">오늘의 선택은...</p>
-          <p className="text-3xl font-black text-white drop-shadow-md">{result}</p>
+          <p className="text-xs font-semibold text-violet-300 mb-1">오늘의 선택은...</p>
+          <p className="text-3xl font-black text-violet-500">{result}</p>
         </div>
       )}
 
       <button
         onClick={handleSpin}
         disabled={spinning}
-        className="relative bg-white text-fuchsia-600 text-sm font-bold rounded-full px-7 py-3 shadow-md active:scale-95 transition disabled:opacity-60"
+        className="relative bg-white text-violet-400 text-sm font-bold rounded-full px-7 py-3 shadow-[0_2px_10px_rgba(180,150,220,0.3)] active:scale-95 transition disabled:opacity-60"
       >
-        {spinning ? "뽑는 중..." : result ? "다시 뽑기" : "뽑기 시작 ✦"}
+        {spinning ? "뽑는 중..." : result ? "다시 뽑기" : "뽑기 시작"}
       </button>
     </div>
   );
