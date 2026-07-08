@@ -7,6 +7,9 @@ type ParsedMenu = {
 const MAIN_ICONS = new Set(["🍜", "🍲", "🍛", "🥘"]);
 const MAIN_KEYWORDS = ["냉면", "짬뽕", "짜장", "우동", "국수", "라면", "탕", "찌개"];
 
+// 항상 고정으로 나와서 결과에서 제외하고 싶은 메뉴들
+const EXCLUDED_ITEMS = ["한강라면"];
+
 const ITEM_REGEX = /(\p{Extended_Pictographic}\uFE0F?)\s*[^\[\]]*\[([^\]]+)\]/gu;
 
 function cleanName(raw: string): string {
@@ -16,13 +19,20 @@ function cleanName(raw: string): string {
     .trim();
 }
 
+function isExcluded(name: string): boolean {
+  return EXCLUDED_ITEMS.some((excluded) => name.includes(excluded));
+}
+
 export function parseKakaoMenu(rawText: string): ParsedMenu {
   const items: { icon: string; name: string }[] = [];
 
   let match: RegExpExecArray | null;
   ITEM_REGEX.lastIndex = 0;
   while ((match = ITEM_REGEX.exec(rawText)) !== null) {
-    items.push({ icon: match[1], name: cleanName(match[2]) });
+    const name = cleanName(match[2]);
+    if (isExcluded(name)) continue; // 제외 목록이면 아예 담지 않음
+
+    items.push({ icon: match[1], name });
   }
 
   if (items.length === 0) {
@@ -39,7 +49,6 @@ export function parseKakaoMenu(rawText: string): ParsedMenu {
     if (idx === 0 || isMainByKeyword) {
       main.push(item.name);
     } else {
-      // 후식·기타였던 것들도 이제는 그냥 반찬으로 통합
       sides.push(item.name);
     }
   });
