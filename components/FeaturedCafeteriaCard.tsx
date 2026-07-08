@@ -3,7 +3,6 @@
 import { useState } from "react";
 import RankBadge, { getRankStyle } from "./RankBadge";
 import MenuChip from "./MenuChip";
-import LikeButton from "./LikeButton";
 import CafeteriaMap from "./CafeteriaMap";
 import { parseListField } from "@/lib/parseListField";
 import { CAFETERIA_ADDRESSES } from "@/lib/cafeteriaAddresses";
@@ -21,16 +20,9 @@ type Cafeteria = {
 type Props = {
   rank: number;
   cafeteria: Cafeteria;
-  likeCount?: number;
-  onLikeSuccess?: (name: string, count: number) => void;
 };
 
-export default function FeaturedCafeteriaCard({
-  rank,
-  cafeteria,
-  likeCount = 0,
-  onLikeSuccess,
-}: Props) {
+export default function FeaturedCafeteriaCard({ rank, cafeteria }: Props) {
   const style = getRankStyle(rank);
   const [showMap, setShowMap] = useState(false);
 
@@ -43,7 +35,7 @@ export default function FeaturedCafeteriaCard({
 
   return (
     <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
-      {/* 상단: 순위 + 이름(+가격) + 원본보기/위치보기 */}
+      {/* 상단: 순위 + 이름(+가격) + 위치/원본 */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <RankBadge rank={rank} />
@@ -63,7 +55,7 @@ export default function FeaturedCafeteriaCard({
                   : "border-gray-200 text-gray-500 hover:border-gray-300"
               }`}
             >
-              위치보기
+              위치
             </button>
           )}
 
@@ -74,7 +66,7 @@ export default function FeaturedCafeteriaCard({
               rel="noopener noreferrer"
               className="text-xs font-semibold text-green-600 border border-green-200 rounded-full px-3 py-1.5 hover:bg-green-50 transition"
             >
-              원본 보기
+              원본
             </a>
           )}
         </div>
@@ -87,11 +79,6 @@ export default function FeaturedCafeteriaCard({
           <p className="text-xs text-gray-400 mt-1.5">{address}</p>
         </div>
       )}
-
-      {/* 좋아요 버튼 */}
-      <div className="mt-3">
-        <LikeButton name={cafeteria.name} initialCount={likeCount} onLikeSuccess={onLikeSuccess} />
-      </div>
 
       {/* 메인(위) / 반찬(아래) 세로 배치 */}
       <div className="mt-4 border border-gray-100 rounded-2xl p-4 space-y-4">

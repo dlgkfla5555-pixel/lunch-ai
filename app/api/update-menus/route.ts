@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { supabase } from "@/lib/supabase";
 import { scrapeKakaoLatestUrl } from "@/lib/scrapeKakaoLatestUrl";
 import { scrapeKakaoPost } from "@/lib/scrapeKakaoPost";
@@ -9,13 +11,9 @@ export async function GET() {
     console.log("🚀 update-menus started");
 
     // =========================
-    // 더밥심 (Kakao) - 최신 게시물 URL을 매번 새로 찾음
+    // 🍱 더밥심 (Kakao)
     // =========================
-    const latestUrl = await scrapeKakaoLatestUrl();
-
-    if (!latestUrl) {
-      throw new Error("카카오 채널에서 최신 게시물 URL을 찾지 못했어요.");
-    }
+    const latestUrl = "https://pf.kakao.com/_mHWxjX/113852240";
 
     console.log("🔗 Kakao latest URL:", latestUrl);
 
@@ -31,10 +29,14 @@ export async function GET() {
       name: "더밥심",
       main: parsed.main,
       sides: parsed.sides,
+      dessert: parsed.dessert,
     });
 
     console.log("💬 AI COMMENT:", aiComment);
 
+    // =========================
+    // 🟢 Supabase 저장 - 더밥심
+    // =========================
     const result = await supabase
       .from("cafeteria_menus")
       .upsert(
@@ -42,6 +44,7 @@ export async function GET() {
           name: "더밥심",
           main: parsed.main,
           sides: parsed.sides,
+          dessert: parsed.dessert,
           ai_comment: aiComment,
           source_url: latestUrl,
           source_type: "kakao",
@@ -52,6 +55,9 @@ export async function GET() {
 
     console.log("SUPABASE RESULT:", result);
 
+    // =========================
+    // ✅ 응답
+    // =========================
     return Response.json({
       success: true,
       kakao: {

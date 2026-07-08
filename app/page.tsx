@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import SlotMachinePicker from "@/components/SlotMachinePicker";
+import GachaPicker from "@/components/GachaPicker";
 import FeaturedCafeteriaCard from "@/components/FeaturedCafeteriaCard";
 import CafeteriaTabs from "@/components/CafeteriaTabs";
 import CommentBoard from "@/components/CommentBoard";
 
 export default function Home() {
   const [cafeterias, setCafeterias] = useState<any[]>([]);
-  const [likes, setLikes] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -28,27 +27,9 @@ export default function Home() {
     setLoading(false);
   }, []);
 
-  const fetchLikes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/like");
-      const json = await res.json();
-
-      if (json.success) {
-        const likeMap: Record<string, number> = {};
-        for (const row of json.likes) {
-          likeMap[row.cafeteria_name] = row.count;
-        }
-        setLikes(likeMap);
-      }
-    } catch (err) {
-      console.error("❌ 좋아요 조회 실패:", err);
-    }
-  }, []);
-
   useEffect(() => {
     fetchData();
-    fetchLikes();
-  }, [fetchData, fetchLikes]);
+  }, [fetchData]);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
@@ -74,18 +55,13 @@ export default function Home() {
       }
 
       await fetchData();
-      await fetchLikes();
     } catch (err: any) {
       console.error("❌ 새로고침 실패:", err);
       setRefreshError("업데이트에 실패했어요. 잠시 후 다시 시도해주세요.");
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing, fetchData, fetchLikes]);
-
-  const handleLikeSuccess = useCallback((name: string, count: number) => {
-    setLikes((prev) => ({ ...prev, [name]: count }));
-  }, []);
+  }, [refreshing, fetchData]);
 
   const active = cafeterias[activeIndex];
 
@@ -126,7 +102,7 @@ export default function Home() {
           {loading && <div className="text-center text-gray-400 py-10">불러오는 중...</div>}
 
           {!loading && cafeterias.length > 0 && (
-            <SlotMachinePicker names={cafeterias.map((c) => c.name)} />
+            <GachaPicker names={cafeterias.map((c) => c.name)} />
           )}
 
           {!loading && cafeterias.length > 0 && (
@@ -138,13 +114,7 @@ export default function Home() {
               />
 
               {active && (
-                <FeaturedCafeteriaCard
-                  key={active.id}
-                  rank={activeIndex + 1}
-                  cafeteria={active}
-                  likeCount={likes[active.name] || 0}
-                  onLikeSuccess={handleLikeSuccess}
-                />
+                <FeaturedCafeteriaCard key={active.id} rank={activeIndex + 1} cafeteria={active} />
               )}
             </>
           )}
