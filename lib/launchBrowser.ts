@@ -9,10 +9,17 @@ export async function launchBrowser(): Promise<Browser> {
     const puppeteer = await import("puppeteer-core");
 
     return puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
+      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+      defaultViewport: {
+        width: 1280,
+        height: 800,
+        deviceScaleFactor: 1,
+        isMobile: false,
+        hasTouch: false,
+        isLandscape: true,
+      },
       executablePath: await chromium.executablePath(),
-      headless: true,
+      headless: "shell",
     });
   }
 
