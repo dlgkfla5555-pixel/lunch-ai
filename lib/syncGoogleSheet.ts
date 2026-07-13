@@ -10,11 +10,13 @@ function toArray(text: string | undefined): string[] {
     .filter(Boolean);
 }
 
+const LABEL_ROW_KEY_INDEX = 1; // 두 번째 열 = "구분"
 const MAIN_ROW_LABEL = "메인";
 const SIDES_ROW_LABEL = "반찬";
 
-// 식당별 원본 보기 링크 (구글시트로 관리하는 식당 중 원본 소스가 있는 곳만)
+// 식당별 원본 보기 링크
 const SOURCE_URL_MAP: Record<string, string> = {
+  더밥심: "https://pf.kakao.com/_mHWxjX",
   런치타임: "https://www.instagram.com/lunchtime_ypp/",
   런치투게더: "https://pf.kakao.com/_swtYxl",
 };
@@ -22,7 +24,6 @@ const SOURCE_URL_MAP: Record<string, string> = {
 // 시트에 열이 남아있어도 무시할 식당 목록
 const EXCLUDED_NAMES = new Set(["윤셰프"]);
 
-// "7/6", "07-06", "7.6", "7월 6일" 등 어떤 표기든 월/일 숫자만 뽑아냄
 function extractMonthDay(text: string): { month: number; day: number } | null {
   const slashMatch = text.match(/(\d{1,2})\s*[/\-.]\s*(\d{1,2})/);
   if (slashMatch) {
@@ -76,10 +77,8 @@ export async function syncGoogleSheet() {
     );
   }
 
-  // 헤더 텍스트가 비어있을 수 있어서(병합 셀 등), 텍스트 대신 "위치"로 구분함:
-  // 1번째 열 = 날짜, 2번째 열 = 구분, 3번째 열부터 = 식당명
   const dateKey = fields[0];
-  const labelKey = fields[1];
+  const labelKey = fields[LABEL_ROW_KEY_INDEX];
   const cafeteriaNames = fields
     .slice(2)
     .filter(Boolean)
@@ -96,7 +95,6 @@ export async function syncGoogleSheet() {
   const today = getTodayMonthDay();
   console.log("📅 오늘 날짜:", today);
 
-  // 날짜가 병합된 셀이면 아래 행은 CSV에서 빈 값이라, 마지막으로 읽은 날짜를 이어받음(forward-fill)
   let currentMonthDay: { month: number; day: number } | null = null;
   const todayRows: Record<string, string>[] = [];
 

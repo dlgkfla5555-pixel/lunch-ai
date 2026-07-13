@@ -1,11 +1,9 @@
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-import { GET as updateMenusHandler } from "@/app/api/update-menus/route";
 import { GET as syncSheetHandler } from "@/app/api/sync-sheet/route";
 
 export async function GET(req: Request) {
-  // Vercel Cron이 보내는 요청인지 확인 (CRON_SECRET 환경변수 설정 시)
   const authHeader = req.headers.get("authorization");
   if (
     process.env.CRON_SECRET &&
@@ -16,22 +14,13 @@ export async function GET(req: Request) {
 
   console.log("⏰ cron-update started");
 
-  const [kakaoRes, sheetRes] = await Promise.allSettled([
-    updateMenusHandler(),
-    syncSheetHandler(),
-  ]);
+  const sheetRes = await syncSheetHandler();
+  const sheetJson = await sheetRes.json();
 
-  const kakaoJson =
-    kakaoRes.status === "fulfilled" ? await kakaoRes.value.json() : { success: false };
-  const sheetJson =
-    sheetRes.status === "fulfilled" ? await sheetRes.value.json() : { success: false };
-
-  console.log("⏰ cron-update kakao:", kakaoJson.success);
   console.log("⏰ cron-update sheet:", sheetJson.success);
 
   return Response.json({
     success: true,
-    kakao: kakaoJson,
     sheet: sheetJson,
   });
 }
