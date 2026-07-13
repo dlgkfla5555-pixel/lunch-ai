@@ -69,6 +69,10 @@ export default function Home() {
     <main className="max-w-[430px] mx-auto p-5 space-y-4">
       <Header onRefresh={handleRefresh} refreshing={refreshing} />
 
+      <div className="rounded-2xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-700 text-center">
+        메뉴는 매일 오전 11시~12시 사이에 업데이트돼요!
+      </div>
+
       {/* 메뉴 / 메모장 모드 전환 */}
       <div className="flex gap-1 bg-gray-100 rounded-full p-1">
         <button
@@ -119,9 +123,6 @@ export default function Home() {
             </>
           )}
 
-          <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
-            매뉴는 매일 오전 11시~12시 사이에 업데이트돼요!
-          </div>
         </>
       )}
     </main>
