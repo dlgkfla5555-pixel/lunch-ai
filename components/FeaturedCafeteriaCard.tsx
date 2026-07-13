@@ -7,6 +7,7 @@ import CafeteriaMap from "./CafeteriaMap";
 import { parseListField } from "@/lib/parseListField";
 import { CAFETERIA_ADDRESSES } from "@/lib/cafeteriaAddresses";
 import { CAFETERIA_INFO, getNoteIcon } from "@/lib/cafeteriaNotes";
+import { formatMenuDate } from "@/lib/formatMenuDate";
 
 type Cafeteria = {
   id: string | number;
@@ -15,6 +16,7 @@ type Cafeteria = {
   sides: string[] | string | null;
   source_url: string | null;
   ai_comment: string | null;
+  updated_at?: string | null;
 };
 
 type Props = {
@@ -32,6 +34,7 @@ export default function FeaturedCafeteriaCard({ rank, cafeteria }: Props) {
   const address = CAFETERIA_ADDRESSES[cafeteria.name];
   const info = CAFETERIA_INFO[cafeteria.name];
   const notes = info?.notes || [];
+  const menuDate = formatMenuDate(cafeteria.updated_at ?? null);
 
   return (
     <div className="rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
@@ -71,6 +74,21 @@ export default function FeaturedCafeteriaCard({ rank, cafeteria }: Props) {
           )}
         </div>
       </div>
+
+      {/* 날짜 배지 (오늘=초록, 오래됨=주황) */}
+      {menuDate && (
+        <div className="mt-2">
+          <span
+            className={`text-xs font-semibold rounded-full px-2.5 py-1 ${
+              menuDate.isToday
+                ? "bg-green-50 text-green-600"
+                : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {menuDate.label} 메뉴{menuDate.isToday ? "" : " · 업데이트 필요"}
+          </span>
+        </div>
+      )}
 
       {/* 지도 (토글) */}
       {showMap && address && (
