@@ -38,20 +38,11 @@ export default function Home() {
     setRefreshError(null);
 
     try {
-      const [kakaoRes, sheetRes] = await Promise.allSettled([
-        fetch("/api/update-menus").then((r) => r.json()),
-        fetch("/api/sync-sheet").then((r) => r.json()),
-      ]);
+      const res = await fetch("/api/sync-sheet");
+      const json = await res.json();
 
-      const kakaoFailed = kakaoRes.status === "fulfilled" && !kakaoRes.value.success;
-      const sheetFailed = sheetRes.status === "fulfilled" && !sheetRes.value.success;
-      const kakaoRejected = kakaoRes.status === "rejected";
-      const sheetRejected = sheetRes.status === "rejected";
-
-      if ((kakaoFailed || kakaoRejected) && (sheetFailed || sheetRejected)) {
-        setRefreshError("업데이트에 실패했어요. 잠시 후 다시 시도해주세요.");
-      } else if (kakaoFailed || kakaoRejected || sheetFailed || sheetRejected) {
-        setRefreshError("일부 데이터만 업데이트됐어요.");
+      if (!json.success) {
+        throw new Error(json.error || "업데이트에 실패했어요");
       }
 
       await fetchData();

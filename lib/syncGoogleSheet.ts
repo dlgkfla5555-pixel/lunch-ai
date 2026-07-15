@@ -21,8 +21,8 @@ const SOURCE_URL_MAP: Record<string, string> = {
   런치투게더: "https://pf.kakao.com/_swtYxl",
 };
 
-// 시트에 열이 남아있어도 무시할 식당 목록 (더밥심은 카카오 자동 스크래핑으로 되돌림)
-const EXCLUDED_NAMES = new Set(["윤셰프", "더밥심"]);
+// 시트에 열이 남아있어도 무시할 식당 목록
+const EXCLUDED_NAMES = new Set(["윤셰프"]);
 
 function extractMonthDay(text: string): { month: number; day: number } | null {
   const slashMatch = text.match(/(\d{1,2})\s*[/\-.]\s*(\d{1,2})/);
