@@ -11,9 +11,6 @@ export async function GET() {
   try {
     console.log("🚀 update-menus started");
 
-    // =========================
-    // 더밥심 (Kakao) - 최신 게시물 URL을 매번 새로 찾음
-    // =========================
     const latestUrl = await scrapeKakaoLatestUrl();
 
     if (!latestUrl) {
@@ -30,7 +27,7 @@ export async function GET() {
 
     console.log("🧠 PARSED MENU:", parsed);
 
-    const aiComment = generateAiComment({
+    const aiComment = await generateAiComment({
       name: "더밥심",
       main: parsed.main,
       sides: parsed.sides,
@@ -38,9 +35,6 @@ export async function GET() {
 
     console.log("💬 AI COMMENT:", aiComment);
 
-    // =========================
-    // Supabase 저장 - 더밥심
-    // =========================
     const result = await supabase
       .from("cafeteria_menus")
       .upsert(
@@ -58,9 +52,6 @@ export async function GET() {
 
     console.log("SUPABASE RESULT:", result);
 
-    // =========================
-    // 응답
-    // =========================
     return Response.json({
       success: true,
       kakao: {

@@ -17,9 +17,17 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"menu" | "board">("menu");
 
   const fetchData = useCallback(async () => {
+    // 1. 오늘 날짜를 시트와 동일한 MM/DD 형식(예: 10/20)으로 생성
+    const today = new Date();
+    const month = today.getMonth() + 1; // 0부터 시작하므로 +1
+    const day = today.getDate();
+    const todayString = `${month}/${day}`; // 예: "10/20" (시트에 0이 안 붙는 형태라면 이렇게 생성)
+
+    // 2. Supabase에서 오늘 날짜에 해당하는 메뉴만 필터링해서 가져오기
     const { data, error } = await supabase
       .from("cafeteria_menus")
       .select("*")
+      .eq("date", todayString) // 👈 날짜 컬럼명이 'date'라고 가정했을 때 오늘 날짜와 일치하는 것만 가져옴
       .order("display_order", { ascending: true });
 
     if (error) console.error("❌ ERROR:", error);
@@ -97,10 +105,6 @@ export default function Home() {
           {loading && <div className="text-center text-gray-400 py-10">불러오는 중...</div>}
 
           {!loading && cafeterias.length > 0 && (
-            <GachaPicker names={cafeterias.map((c) => c.name)} />
-          )}
-
-          {!loading && cafeterias.length > 0 && (
             <>
               <CafeteriaTabs
                 cafeterias={cafeterias}
@@ -112,6 +116,10 @@ export default function Home() {
                 <FeaturedCafeteriaCard key={active.id} rank={activeIndex + 1} cafeteria={active} />
               )}
             </>
+          )}
+
+          {!loading && cafeterias.length > 0 && (
+            <GachaPicker names={cafeterias.map((c) => c.name)} />
           )}
         </>
       )}

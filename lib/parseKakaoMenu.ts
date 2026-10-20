@@ -3,12 +3,42 @@ type ParsedMenu = {
   sides: string[];
 };
 
-// 그 자체로 한 끼가 되는 음식 (면·국 계열 포함)
+// 그 자체로 한 끼가 되는 음식 (면·국·밥·고기 계열)
 const MAIN_ICONS = new Set(["🍜", "🍲", "🍛", "🥘"]);
-const MAIN_KEYWORDS = ["냉면", "짬뽕", "짜장", "우동", "국수", "라면", "탕", "찌개"];
 
-// 항상 고정으로 나와서 결과에서 제외하고 싶은 메뉴들
-const EXCLUDED_ITEMS = ["한강라면"];
+const MAIN_KEYWORDS = [
+  // 면·국물류
+  "냉면",
+  "짬뽕",
+  "짜장",
+  "우동",
+  "국수",
+  "라면",
+  "탕",
+  "찌개",
+  "국",
+  // 밥류
+  "비빔밥",
+  "볶음밥",
+  "덮밥",
+  "국밥",
+  "죽",
+  // 고기류
+  "불고기",
+  "고기",
+  "갈비",
+  "제육",
+  "돈까스",
+  "까스",
+  "치킨",
+  "스테이크",
+  "삼겹살",
+  "족발",
+  "닭",
+];
+
+// 항목 제외 목록 (특정 메뉴는 항상 결과에서 빼고 싶을 때)
+const EXCLUDED_ITEMS = ["한강라면", "누룽지", "아이스커피"];
 
 const ITEM_REGEX = /(\p{Extended_Pictographic}\uFE0F?)\s*[^\[\]]*\[([^\]]+)\]/gu;
 
@@ -30,7 +60,7 @@ export function parseKakaoMenu(rawText: string): ParsedMenu {
   ITEM_REGEX.lastIndex = 0;
   while ((match = ITEM_REGEX.exec(rawText)) !== null) {
     const name = cleanName(match[2]);
-    if (isExcluded(name)) continue; // 제외 목록이면 아예 담지 않음
+    if (isExcluded(name)) continue;
 
     items.push({ icon: match[1], name });
   }

@@ -4,22 +4,16 @@ export async function launchBrowser(): Promise<Browser> {
   const isServerless = !!process.env.VERCEL;
 
   if (isServerless) {
-    // Vercel 등 서버리스 환경: 경량 크로미움 사용
-    const chromium = (await import("@sparticuz/chromium")).default;
+    // Vercel 등 서버리스 환경: Browserless 원격 브라우저에 연결
     const puppeteer = await import("puppeteer-core");
 
-    return puppeteer.launch({
-      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
-      defaultViewport: {
-        width: 1280,
-        height: 800,
-        deviceScaleFactor: 1,
-        isMobile: false,
-        hasTouch: false,
-        isLandscape: true,
-      },
-      executablePath: await chromium.executablePath(),
-      headless: "shell",
+    const apiKey = process.env.BROWSERLESS_API_KEY;
+    if (!apiKey) {
+      throw new Error("BROWSERLESS_API_KEY 환경변수가 설정되지 않았어요.");
+    }
+
+    return puppeteer.connect({
+      browserWSEndpoint: `wss://production-sfo.browserless.io?token=${apiKey}`,
     });
   }
 

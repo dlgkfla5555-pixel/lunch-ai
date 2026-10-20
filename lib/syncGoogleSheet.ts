@@ -17,8 +17,10 @@ const SIDES_ROW_LABEL = "반찬";
 // 식당별 원본 보기 링크
 const SOURCE_URL_MAP: Record<string, string> = {
   더밥심: "https://pf.kakao.com/_mHWxjX",
-  런치타임: "https://www.instagram.com/lunchtime_ypp/",
+  런치타임: "https://www.instagram.com/lunchtime_ypp?igsh=MWNsajBzYzhqZWx0dQ%3D%3D",
   런치투게더: "https://pf.kakao.com/_swtYxl",
+  호서: "https://www.instagram.com/hoseofood/",
+  온정찬: "https://pf.kakao.com/_UIdXn/posts",
 };
 
 // 시트에 열이 남아있어도 무시할 식당 목록
@@ -147,7 +149,7 @@ export async function syncGoogleSheet() {
     const mainList = toArray(entry.main);
     const sidesList = toArray(entry.sides);
 
-    const aiComment = generateAiComment({
+    const aiComment = await generateAiComment({
       name: trimmedName,
       main: mainList,
       sides: sidesList,
