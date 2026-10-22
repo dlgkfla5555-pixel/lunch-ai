@@ -1,48 +1,32 @@
-import Papa from "papaparse";
 import { supabase } from "@/lib/supabase";
 import { generateAiComment } from "@/lib/generateAiComment";
+import { getTodayKST, parseTodayMenus, type ParsedMenu } from "@/lib/parseMenuSheet";
 
-function toArray(text: string | undefined): string[] {
-  if (!text) return [];
-  return text
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-const LABEL_ROW_KEY_INDEX = 1; // 두 번째 열 = "구분"
-const MAIN_ROW_LABEL = "메인";
-const SIDES_ROW_LABEL = "반찬";
-
-// 식당별 원본 보기 링크
+// 식당별 원본 보기 링크 (시트 헤더 이름과 같아야 함)
 const SOURCE_URL_MAP: Record<string, string> = {
   더밥심: "https://pf.kakao.com/_mHWxjX",
   런치타임: "https://www.instagram.com/lunchtime_ypp?igsh=MWNsajBzYzhqZWx0dQ%3D%3D",
   런치투게더: "https://pf.kakao.com/_swtYxl",
   호서: "https://www.instagram.com/hoseofood/",
+  호서대: "https://www.instagram.com/hoseofood/",
   온정찬: "https://pf.kakao.com/_UIdXn/posts",
+};
+
+// 시트 헤더 이름 → 앱에 표시할 이름 (헤더가 "호서"든 "호서대"든 항상 "호서대"로 저장)
+const NAME_ALIASES: Record<string, string> = {
+  호서: "호서대",
 };
 
 // 시트에 열이 남아있어도 무시할 식당 목록
 const EXCLUDED_NAMES = new Set(["윤셰프"]);
 
-function extractMonthDay(text: string): { month: number; day: number } | null {
-  const slashMatch = text.match(/(\d{1,2})\s*[/\-.]\s*(\d{1,2})/);
-  if (slashMatch) {
-    return { month: Number(slashMatch[1]), day: Number(slashMatch[2]) };
-  }
-
-  const koreanMatch = text.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-  if (koreanMatch) {
-    return { month: Number(koreanMatch[1]), day: Number(koreanMatch[2]) };
-  }
-
-  return null;
-}
-
-function getTodayMonthDay(): { month: number; day: number } {
-  const now = new Date();
-  return { month: now.getMonth() + 1, day: now.getDate() };
+/** 환경변수 URL이 어떤 시트인지 요약 (비밀값은 노출하지 않음) */
+function describeSheetUrl(url: string): string {
+  const id = url.match(/\/spreadsheets\/d\/([^/?#]+)/)?.[1];
+  const gid = url.match(/[?&#]gid=(\d+)/)?.[1];
+  if (!id) return "알 수 없는 주소 형식";
+  if (id === "e") return `웹에 게시된 링크(/d/e/…)${gid ? `, gid=${gid}` : ""}`;
+  return `시트 ID ${id.slice(0, 10)}…${gid ? `, gid=${gid}` : ""}`;
 }
 
 export async function syncGoogleSheet() {
@@ -60,115 +44,54 @@ export async function syncGoogleSheet() {
 
   const csvText = await res.text();
 
-  const parsed = Papa.parse<Record<string, string>>(csvText, {
-    header: true,
-    skipEmptyLines: true,
-  });
+  // 한국 시간 기준 오늘 (Vercel 서버는 UTC라서 new Date()의 날짜를 그대로 쓰면 어긋남)
+  const today = getTodayKST();
+  console.log("📅 오늘 날짜(KST):", today.iso);
 
-  if (parsed.errors.length > 0) {
-    console.warn("⚠️ CSV 파싱 경고:", parsed.errors);
+  // 오늘 날짜 블록만 뽑아서 식당별 메인/반찬으로 정리
+  let menus: ParsedMenu[];
+  try {
+    menus = parseTodayMenus(csvText, today, EXCLUDED_NAMES);
+  } catch (e: any) {
+    // 어느 시트를 읽고 있는지 같이 알려줘서 환경변수가 옛 시트를 가리키는지 바로 확인 가능
+    throw new Error(`${e?.message || e} | 읽은 곳: ${describeSheetUrl(csvUrl)}`);
   }
 
-  const fields = parsed.meta.fields || [];
+  // 식당 이름 통일 (예: 호서 → 호서대)
+  menus = menus.map((m) => ({ ...m, name: NAME_ALIASES[m.name] ?? m.name }));
 
-  if (fields.length < 3) {
-    throw new Error(
-      `시트 열이 너무 적어요. 날짜, 구분, 식당명들 순서로 최소 3개 열이 필요해요. (실제 헤더: ${JSON.stringify(
-        fields
-      )})`
-    );
-  }
+  const results: { name: string; error: string | null }[] = [];
 
-  const dateKey = fields[0];
-  const labelKey = fields[LABEL_ROW_KEY_INDEX];
-  const cafeteriaNames = fields
-    .slice(2)
-    .filter(Boolean)
-    .filter((name) => !EXCLUDED_NAMES.has(name.trim()));
+  for (const menu of menus) {
+    if (!menu.name) continue;
 
-  if (cafeteriaNames.length === 0) {
-    throw new Error(
-      `식당명 컬럼을 찾지 못했어요. 3번째 열부터 식당명이 있어야 해요. (실제 헤더: ${JSON.stringify(
-        fields
-      )})`
-    );
-  }
-
-  const today = getTodayMonthDay();
-  console.log("📅 오늘 날짜:", today);
-
-  let currentMonthDay: { month: number; day: number } | null = null;
-  const todayRows: Record<string, string>[] = [];
-
-  for (const row of parsed.data) {
-    const rawDate = row[dateKey]?.trim();
-    if (rawDate) {
-      const parsedDate = extractMonthDay(rawDate);
-      if (parsedDate) currentMonthDay = parsedDate;
+    // AI 코멘트 생성이 실패해도 메뉴 저장은 계속 진행
+    let aiComment: Awaited<ReturnType<typeof generateAiComment>> | null = null;
+    try {
+      aiComment = await generateAiComment({
+        name: menu.name,
+        main: menu.main,
+        sides: menu.sides,
+      });
+    } catch (e) {
+      console.warn(`⚠️ AI 코멘트 생성 실패 (${menu.name}):`, e);
     }
-
-    if (
-      currentMonthDay &&
-      currentMonthDay.month === today.month &&
-      currentMonthDay.day === today.day
-    ) {
-      todayRows.push(row);
-    }
-  }
-
-  if (todayRows.length === 0) {
-    throw new Error(
-      `오늘(${today.month}/${today.day}) 날짜의 데이터를 시트에서 찾지 못했어요. 날짜 열 표기를 확인해주세요.`
-    );
-  }
-
-  const dataByCafeteria: Record<string, { main?: string; sides?: string }> = {};
-
-  for (const row of todayRows) {
-    const label = row[labelKey]?.trim();
-    if (!label) continue;
-
-    for (const name of cafeteriaNames) {
-      if (!dataByCafeteria[name]) dataByCafeteria[name] = {};
-
-      if (label === MAIN_ROW_LABEL) {
-        dataByCafeteria[name].main = row[name];
-      } else if (label === SIDES_ROW_LABEL) {
-        dataByCafeteria[name].sides = row[name];
-      }
-    }
-  }
-
-  const results: any[] = [];
-
-  for (const name of cafeteriaNames) {
-    const trimmedName = name.trim();
-    if (!trimmedName) continue;
-
-    const entry = dataByCafeteria[name] || {};
-    const mainList = toArray(entry.main);
-    const sidesList = toArray(entry.sides);
-
-    const aiComment = await generateAiComment({
-      name: trimmedName,
-      main: mainList,
-      sides: sidesList,
-    });
 
     const upsertResult = await supabase.from("cafeteria_menus").upsert(
       {
-        name: trimmedName,
-        main: mainList,
-        sides: sidesList,
+        name: menu.name,
+        date: today.iso, // 👈 오늘 날짜(YYYY-MM-DD)를 함께 저장. 앱이 이 값으로 오늘 메뉴만 조회
+        main: menu.main,
+        sides: menu.sides,
         ai_comment: aiComment,
-        source_url: SOURCE_URL_MAP[trimmedName] || null,
+        source_url: SOURCE_URL_MAP[menu.name] || null,
         source_type: "sheet",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "name" }
     );
 
-    results.push({ name: trimmedName, error: upsertResult.error?.message ?? null });
+    results.push({ name: menu.name, error: upsertResult.error?.message ?? null });
   }
 
   return results;
