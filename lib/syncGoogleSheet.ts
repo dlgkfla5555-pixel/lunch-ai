@@ -1,21 +1,29 @@
 import { supabase } from "@/lib/supabase";
 
-/**
- * 웹앱 서버가 직접 구글 시트를 읽지 않고, 
- * 이미 Supabase DB에 적재된 데이터를 그대로 반환하도록 우회하는 함수입니다.
- */
+// 원하시는 식당 출력 순서 정의
+const RESTAURANT_ORDER = ['더밥심', '런치투게더', '호서대', '온정찬', '런치타임', '오정'];
+
 export async function syncGoogleSheet() {
-  // Supabase에 저장된 최신 메뉴 데이터를 조회
+  // 한국 시간 기준 오늘 날짜 (YYYY-MM-DD)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+
+  // 1. 오늘 날짜에 해당하는 메뉴만 Supabase에서 조회
   const { data, error } = await supabase
     .from("cafeteria_menus")
-    .select("*");
+    .select("*")
+    .eq("date", today);
 
   if (error) {
     throw new Error(`Supabase 메뉴 데이터를 불러오지 못했어요: ${error.message}`);
   }
 
-  // 기존 동기화 결과 포맷에 맞춰 반환
-  const results = (data || []).map((item) => ({
+  // 2. 지정한 식당 순서대로 정렬
+  const sortedData = (data || []).sort((a, b) => {
+    return RESTAURANT_ORDER.indexOf(a.name) - RESTAURANT_ORDER.indexOf(b.name);
+  });
+
+  // 3. 결과 포맷 변환
+  const results = sortedData.map((item) => ({
     name: item.name,
     error: null,
   }));
