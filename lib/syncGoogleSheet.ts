@@ -1,113 +1,24 @@
 import { supabase } from "@/lib/supabase";
-import { generateAiComment } from "@/lib/generateAiComment";
-import { getTodayKST, parseTodayMenus, type ParsedMenu } from "@/lib/parseMenuSheet";
 
-// 식당별 원본 보기 링크 (시트 헤더 이름과 같아야 함)
-const SOURCE_URL_MAP: Record<string, string> = {
-  더밥심: "https://pf.kakao.com/_mHWxjX",
-  런치타임: "https://www.instagram.com/lunchtime_ypp?igsh=MWNsajBzYzhqZWx0dQ%3D%3D",
-  런치투게더: "https://pf.kakao.com/_swtYxl",
-  호서: "https://www.instagram.com/hoseofood/",
-  호서대: "https://www.instagram.com/hoseofood/",
-  온정찬: "https://pf.kakao.com/_UIdXn/posts",
-};
-
-// 시트 헤더 이름 → 앱에 표시할 이름 (헤더가 "호서"든 "호서대"든 항상 "호서대"로 저장)
-const NAME_ALIASES: Record<string, string> = {
-  호서: "호서대",
-};
-
-// 시트에 열이 남아있어도 무시할 식당 목록
-const EXCLUDED_NAMES = new Set(["윤셰프"]);
-
-/** 환경변수 URL이 어떤 시트인지 요약 (비밀값은 노출하지 않음) */
-function describeSheetUrl(url: string): string {
-  const id = url.match(/\/spreadsheets\/d\/([^/?#]+)/)?.[1];
-  const gid = url.match(/[?&#]gid=(\d+)/)?.[1];
-  if (!id) return "알 수 없는 주소 형식";
-  if (id === "e") return `웹에 게시된 링크(/d/e/…)${gid ? `, gid=${gid}` : ""}`;
-  return `시트 ID ${id.slice(0, 10)}…${gid ? `, gid=${gid}` : ""}`;
-}
-
+/**
+ * 웹앱 서버가 직접 구글 시트를 읽지 않고, 
+ * 이미 Supabase DB에 적재된 데이터를 그대로 반환하도록 우회하는 함수입니다.
+ */
 export async function syncGoogleSheet() {
-  const csvUrl = process.env.GOOGLE_SHEET_CSV_URL;
+  // Supabase에 저장된 최신 메뉴 데이터를 조회
+  const { data, error } = await supabase
+    .from("cafeteria_menus")
+    .select("*");
 
-  if (!csvUrl) {
-    throw new Error("GOOGLE_SHEET_CSV_URL 환경변수가 설정되지 않았어요.");
+  if (error) {
+    throw new Error(`Supabase 메뉴 데이터를 불러오지 못했어요: ${error.message}`);
   }
 
-  const res = await fetch(csvUrl, { cache: "no-store" });
-
-  if (!res.ok) {
-    const hint =
-      res.status === 401 || res.status === 403
-        ? " (시트가 비공개예요. 공유를 '링크가 있는 모든 사용자-뷰어'로 바꾸거나 '웹에 게시' 링크를 쓰세요)"
-        : res.status === 404
-        ? " (주소가 틀렸거나 시트가 삭제됐어요)"
-        : "";
-    throw new Error(
-      `구글 시트를 가져오지 못했어요. status: ${res.status}${hint} | 읽은 곳: ${describeSheetUrl(csvUrl)}`
-    );
-  }
-
-  const csvText = await res.text();
-
-  // 비공개 시트는 CSV 대신 로그인 화면(HTML)이 200으로 올 수 있어서 따로 걸러냄
-  if (/^\s*<(!doctype|html)/i.test(csvText)) {
-    throw new Error(
-      `구글 시트 대신 웹 페이지(로그인 화면 등)가 왔어요. 시트가 비공개이거나 주소가 CSV 형식이 아니에요. | 읽은 곳: ${describeSheetUrl(csvUrl)}`
-    );
-  }
-
-  // 한국 시간 기준 오늘 (Vercel 서버는 UTC라서 new Date()의 날짜를 그대로 쓰면 어긋남)
-  const today = getTodayKST();
-  console.log("📅 오늘 날짜(KST):", today.iso);
-
-  // 오늘 날짜 블록만 뽑아서 식당별 메인/반찬으로 정리
-  let menus: ParsedMenu[];
-  try {
-    menus = parseTodayMenus(csvText, today, EXCLUDED_NAMES);
-  } catch (e: any) {
-    // 어느 시트를 읽고 있는지 같이 알려줘서 환경변수가 옛 시트를 가리키는지 바로 확인 가능
-    throw new Error(`${e?.message || e} | 읽은 곳: ${describeSheetUrl(csvUrl)}`);
-  }
-
-  // 식당 이름 통일 (예: 호서 → 호서대)
-  menus = menus.map((m) => ({ ...m, name: NAME_ALIASES[m.name] ?? m.name }));
-
-  const results: { name: string; error: string | null }[] = [];
-
-  for (const menu of menus) {
-    if (!menu.name) continue;
-
-    // AI 코멘트 생성이 실패해도 메뉴 저장은 계속 진행
-    let aiComment: Awaited<ReturnType<typeof generateAiComment>> | null = null;
-    try {
-      aiComment = await generateAiComment({
-        name: menu.name,
-        main: menu.main,
-        sides: menu.sides,
-      });
-    } catch (e) {
-      console.warn(`⚠️ AI 코멘트 생성 실패 (${menu.name}):`, e);
-    }
-
-    const upsertResult = await supabase.from("cafeteria_menus").upsert(
-      {
-        name: menu.name,
-        date: today.iso, // 👈 오늘 날짜(YYYY-MM-DD)를 함께 저장. 앱이 이 값으로 오늘 메뉴만 조회
-        main: menu.main,
-        sides: menu.sides,
-        ai_comment: aiComment,
-        source_url: SOURCE_URL_MAP[menu.name] || null,
-        source_type: "sheet",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "name" }
-    );
-
-    results.push({ name: menu.name, error: upsertResult.error?.message ?? null });
-  }
+  // 기존 동기화 결과 포맷에 맞춰 반환
+  const results = (data || []).map((item) => ({
+    name: item.name,
+    error: null,
+  }));
 
   return results;
 }
