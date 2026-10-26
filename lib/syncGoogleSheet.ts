@@ -39,10 +39,25 @@ export async function syncGoogleSheet() {
   const res = await fetch(csvUrl, { cache: "no-store" });
 
   if (!res.ok) {
-    throw new Error(`구글 시트를 가져오지 못했어요. status: ${res.status}`);
+    const hint =
+      res.status === 401 || res.status === 403
+        ? " (시트가 비공개예요. 공유를 '링크가 있는 모든 사용자-뷰어'로 바꾸거나 '웹에 게시' 링크를 쓰세요)"
+        : res.status === 404
+        ? " (주소가 틀렸거나 시트가 삭제됐어요)"
+        : "";
+    throw new Error(
+      `구글 시트를 가져오지 못했어요. status: ${res.status}${hint} | 읽은 곳: ${describeSheetUrl(csvUrl)}`
+    );
   }
 
   const csvText = await res.text();
+
+  // 비공개 시트는 CSV 대신 로그인 화면(HTML)이 200으로 올 수 있어서 따로 걸러냄
+  if (/^\s*<(!doctype|html)/i.test(csvText)) {
+    throw new Error(
+      `구글 시트 대신 웹 페이지(로그인 화면 등)가 왔어요. 시트가 비공개이거나 주소가 CSV 형식이 아니에요. | 읽은 곳: ${describeSheetUrl(csvUrl)}`
+    );
+  }
 
   // 한국 시간 기준 오늘 (Vercel 서버는 UTC라서 new Date()의 날짜를 그대로 쓰면 어긋남)
   const today = getTodayKST();
